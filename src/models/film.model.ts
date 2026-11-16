@@ -61,6 +61,90 @@ const seoSchema = new Schema(
   },
 );
 
+const objectKeyValidator = {
+  validator(value: string) {
+    return (
+      !value.startsWith("/") &&
+      !value.includes("\\") &&
+      !value.includes("?") &&
+      !value.includes("#") &&
+      !value.split("/").includes("..")
+    );
+  },
+  message: "Please provide a valid media object key",
+};
+
+const imageMediaSchema = new Schema(
+  {
+    objectKey: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 1024,
+      validate: objectKeyValidator,
+    },
+    alt: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+    },
+  },
+  {
+    _id: false,
+  },
+);
+
+const galleryMediaSchema = new Schema(
+  {
+    type: {
+      type: String,
+      required: true,
+      enum: ["image", "video"],
+    },
+    objectKey: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 1024,
+      validate: objectKeyValidator,
+    },
+    thumbnailObjectKey: {
+      type: String,
+      trim: true,
+      maxlength: 1024,
+      validate: objectKeyValidator,
+    },
+    alt: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+    },
+  },
+  {
+    _id: false,
+  },
+);
+
+const gallerySchema = new Schema(
+  {
+    stills: {
+      type: [galleryMediaSchema],
+      default: [],
+    },
+    bts: {
+      type: [galleryMediaSchema],
+      default: [],
+    },
+    events: {
+      type: [galleryMediaSchema],
+      default: [],
+    },
+  },
+  {
+    _id: false,
+  },
+);
+
 const filmSchema=new Schema(
     {
         title:{
@@ -201,6 +285,16 @@ const filmSchema=new Schema(
         seo:{
             type:seoSchema,
             default:()=>({}),
+        },
+        poster: {
+          type: imageMediaSchema,
+        },
+        heroImage: {
+          type: imageMediaSchema,
+        },
+        gallery: {
+          type: gallerySchema,
+          default: () => ({}),
         },
     },
     {

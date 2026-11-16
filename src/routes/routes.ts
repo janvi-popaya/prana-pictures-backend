@@ -7,6 +7,7 @@ import publicFilmRoutes from "./public-film.routes.js";
 import publicTeamRoutes from "./public-team.routes.js";
 import publicNewsRoutes from "./public-news.routes.js";
 import adminInformationRoutes from "./admin-information.routes.js";
+import adminMediaRoutes from "./admin-media.routes.js";
 import publicInformationRoutes from "./public-information.routes.js";
 
 const baseUrl = "/api/v1";
@@ -22,6 +23,7 @@ const routes = (app: any) => {
   app.use(`${baseUrl}/admin/films`, adminFilmRoutes);
   app.use(`${baseUrl}/admin/team`,adminTeamRoutes);
   app.use(`${baseUrl}/admin/news`, adminNewsRoutes);
+  app.use(`${baseUrl}/admin/media`, adminMediaRoutes);
 
   app.use(`${baseUrl}/information`, publicInformationRoutes);
   app.use(`${baseUrl}/admin/information`,adminInformationRoutes,);

@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { isValidObjectId } from "mongoose";
+import { createPublicMediaUrl } from "../config/s3.js";
 import { Film } from "../models/film.model.js";
 
 type FilmSlugParams = {
@@ -23,6 +24,90 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+type StoredMedia = {
+  type?: "image" | "video";
+  objectKey: string;
+  thumbnailObjectKey?: string;
+  alt?: string;
+};
+
+type StoredGallery = {
+  stills?: StoredMedia[];
+  bts?: StoredMedia[];
+  events?: StoredMedia[];
+};
+
+function serializeMedia(media: StoredMedia | undefined) {
+  if (!media?.objectKey) {
+    return undefined;
+  }
+
+  return {
+    ...media,
+    url: createPublicMediaUrl(media.objectKey),
+    ...(media.thumbnailObjectKey
+      ? {
+          thumbnailUrl: createPublicMediaUrl(
+            media.thumbnailObjectKey,
+          ),
+        }
+      : {}),
+  };
+}
+
+function serializeFilmMedia(film: Record<string, unknown>) {
+  const poster = film.poster as StoredMedia | undefined;
+  const heroImage = film.heroImage as StoredMedia | undefined;
+  const gallery = film.gallery as StoredGallery | undefined;
+
+  return {
+    ...film,
+    ...(poster ? { poster: serializeMedia(poster) } : {}),
+    ...(heroImage
+      ? { heroImage: serializeMedia(heroImage) }
+      : {}),
+    ...(gallery
+      ? {
+          gallery: {
+            stills: (gallery.stills ?? []).map((media) =>
+              serializeMedia(media),
+            ),
+            bts: (gallery.bts ?? []).map((media) =>
+              serializeMedia(media),
+            ),
+            events: (gallery.events ?? []).map((media) =>
+              serializeMedia(media),
+            ),
+          },
+        }
+      : {}),
+  };
+}
+
+function buildFilmUpdate(body: Record<string, unknown>) {
+  const updateData: Record<string, unknown> = {
+    ...body,
+  };
+
+  for (const nestedField of ["seo", "gallery"] as const) {
+    const nestedValue = body[nestedField];
+
+    if (
+      typeof nestedValue === "object" &&
+      nestedValue !== null &&
+      !Array.isArray(nestedValue)
+    ) {
+      delete updateData[nestedField];
+
+      for (const [key, value] of Object.entries(nestedValue)) {
+        updateData[`${nestedField}.${key}`] = value;
+      }
+    }
+  }
+
+  return updateData;
+}
+
 export async function createFilm(
   req: Request,
   res: Response,
@@ -34,7 +119,9 @@ export async function createFilm(
     return res.status(201).json({
       success: true,
       message: "Film created successfully",
-      data: film,
+      data: serializeFilmMedia(
+        film.toObject() as Record<string, unknown>,
+      ),
     });
   } catch (error) {
     if (isDuplicateKeyError(error)) {
@@ -66,7 +153,9 @@ export async function getPublicFilms(
     return res.status(200).json({
       success: true,
       message: "Films fetched successfully",
-      data: films,
+      data: films.map((film) =>
+        serializeFilmMedia(film as Record<string, unknown>),
+      ),
     });
   } catch (error) {
     next(error);
@@ -94,7 +183,7 @@ export async function getPublicFilmBySlug(
     return res.status(200).json({
       success: true,
       message: "Film fetched successfully",
-      data: film,
+      data: serializeFilmMedia(film as Record<string, unknown>),
     });
   } catch (error) {
     next(error);
@@ -183,7 +272,7 @@ export async function getAdminFilms(
     const [films, total] = await Promise.all([
       Film.find(filter)
         .select(
-          "title slug genres runtimeMinutes releaseDate sortOrder status createdAt updatedAt",
+          "title slug genres runtimeMinutes releaseDate sortOrder status poster heroImage createdAt updatedAt",
         )
         .sort({
           [sortField]: sortDirection,
@@ -198,7 +287,9 @@ export async function getAdminFilms(
     return res.status(200).json({
       success: true,
       message: "Films fetched successfully",
-      data: films,
+      data: films.map((film) =>
+        serializeFilmMedia(film as Record<string, unknown>),
+      ),
       meta: {
         page,
         limit,
@@ -238,7 +329,7 @@ export async function getAdminFilmById(
     return res.status(200).json({
       success: true,
       message: "Film fetched successfully",
-      data: film,
+      data: serializeFilmMedia(film as Record<string, unknown>),
     });
   } catch (error) {
     next(error);
@@ -260,13 +351,15 @@ export async function updateFilm(
       });
     }
 
+    const updateData = buildFilmUpdate(req.body);
+
     const film = await Film.findByIdAndUpdate(
       id,
       {
-        $set: req.body,
+        $set: updateData,
       },
       {
-        new: true,
+        returnDocument: "after",
         runValidators: true,
       },
     );
@@ -281,7 +374,9 @@ export async function updateFilm(
     return res.status(200).json({
       success: true,
       message: "Film updated successfully",
-      data: film,
+      data: serializeFilmMedia(
+        film.toObject() as Record<string, unknown>,
+      ),
     });
   } catch (error) {
     if (isDuplicateKeyError(error)) {

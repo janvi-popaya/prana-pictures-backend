@@ -24,6 +24,39 @@ const seoSchema = z.strictObject({
     .optional(),
 });
 
+const objectKeySchema = z
+  .string()
+  .trim()
+  .min(1, "Media object key is required")
+  .max(1024)
+  .refine(
+    (value) =>
+      !value.startsWith("/") &&
+      !value.includes("\\") &&
+      !value.includes("?") &&
+      !value.includes("#") &&
+      !value.split("/").includes(".."),
+    "Please provide a valid media object key",
+  );
+
+const imageMediaSchema = z.strictObject({
+  objectKey: objectKeySchema,
+  alt: z.string().trim().max(200).optional(),
+});
+
+const galleryMediaSchema = z.strictObject({
+  type: z.enum(["image", "video"]),
+  objectKey: objectKeySchema,
+  thumbnailObjectKey: objectKeySchema.optional(),
+  alt: z.string().trim().max(200).optional(),
+});
+
+const gallerySchema = z.strictObject({
+  stills: z.array(galleryMediaSchema).max(100).optional(),
+  bts: z.array(galleryMediaSchema).max(100).optional(),
+  events: z.array(galleryMediaSchema).max(100).optional(),
+});
+
 export const createFilmSchema=z.strictObject({
     imdbUrl: optionalHttpUrl,
     letterboxdUrl: optionalHttpUrl,
@@ -48,6 +81,9 @@ export const createFilmSchema=z.strictObject({
     status:z.enum(["enabled","disabled","upcoming"]),
     socialLinks:z.array(socialLinkSchema).max(20).optional(),
     seo:seoSchema.optional(),
+    poster: imageMediaSchema.optional(),
+    heroImage: imageMediaSchema.optional(),
+    gallery: gallerySchema.optional(),
 });
 
 export const updateFilmSchema = createFilmSchema
