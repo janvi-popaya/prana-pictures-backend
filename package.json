@@ -8,6 +8,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "create-admin": "tsx src/scripts/create-admin.ts",
+    "seed-content": "tsx src/scripts/seed-content.ts",
     "test-s3": "tsx src/scripts/test-s3.ts"
   },
   "keywords": [],
